@@ -435,3 +435,5 @@ Retorne APENAS o texto da evolução formatada, sem explicações adicionais."""
 
 # Instância singleton do serviço
 perplexity_service = PerplexityService()
+
+# Teste de Git
