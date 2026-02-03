@@ -12,6 +12,7 @@ from app.schemas.evolution import (
 )
 from app.services.template_service import template_service
 from app.services.perplexity_service import perplexity_service
+from app.services.intelligence_service import detectar_tudo, validar_anti_invencao
 from app.models.evolution import (
     EvolutionTemplate,
     HeaderConfig,
@@ -27,11 +28,17 @@ async def generate_evolution(request: EvolutionGenerateRequest):
     """
     Gera uma evolução médica formatada a partir de texto livre.
     
-    Pode usar um template existente (via template_id) ou configurações inline.
-    A IA processará o texto e retornará a evolução formatada conforme as configurações.
+    Usa inteligência automática para detectar contexto e especialidade quando não informados.
+    Valida a saída contra regras anti-invenção.
     """
     template = None
-    
+    identificacao = None
+
+    # 1. Inteligência Automática: detectar contexto e especialidade se não fornecidos
+    identificacao = detectar_tudo(request.raw_text)
+    contexto_final = request.primary_context or identificacao.primary_context
+    especialidade_final = request.outpatient_specialty or identificacao.outpatient_specialty
+
     # Se template_id fornecido, busca o template
     if request.template_id:
         template = template_service.get_template(request.template_id)
@@ -41,14 +48,14 @@ async def generate_evolution(request: EvolutionGenerateRequest):
                 detail=f"Template não encontrado: {request.template_id}"
             )
     
-    # Se configurações inline fornecidas, cria template temporário
-    elif request.primary_context:
+    # Se configurações inline ou detectadas, cria template temporário
+    else:
         template = EvolutionTemplate(
             id="temp",
             name="Configuração Temporária",
-            primary_context=request.primary_context,
+            primary_context=contexto_final,
             emergency_type=request.emergency_type,
-            outpatient_specialty=request.outpatient_specialty,
+            outpatient_specialty=especialidade_final,
             header_config=request.header_config or HeaderConfig(),
             sections_config=request.sections_config or SectionsConfig(),
             formatting_config=request.formatting_config or FormattingConfig(),
@@ -86,10 +93,20 @@ async def generate_evolution(request: EvolutionGenerateRequest):
         for s in result.get("sections", [])
     ]
     
-    # Monta metadados
+    # 2. Validação Anti-Invenção
+    validacao = validar_anti_invencao(request.raw_text, result.get("formatted_text", ""))
+
+    # Monta metadados (incluindo identificação e validação)
     metadata = {
         "model_used": result.get("model_used", "unknown"),
+        "validation_errors": validacao.erros,
+        "validation_warnings": validacao.avisos,
+        "validation_passed": validacao.passou,
     }
+    if identificacao:
+        metadata["detected_context"] = contexto_final.value
+        metadata["detected_specialty"] = especialidade_final.value
+        metadata["detection_confidence"] = round(identificacao.confianca, 2)
     if result.get("warning"):
         metadata["warning"] = result["warning"]
     

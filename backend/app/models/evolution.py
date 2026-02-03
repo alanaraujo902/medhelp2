@@ -18,6 +18,17 @@ class PrimaryContext(str, Enum):
     ICU = "uti"
     HOSPITALIZATION = "internacao"
     OUTPATIENT = "ambulatorio"
+    # Contextos PA (Pronto Atendimento)
+    PA_GREEN = "pa_verde"
+    PA_YELLOW = "pa_amarela"
+    PA_RED = "pa_vermelha"
+    # PACS
+    PACS_URGENCIA = "pacs_urgencia"
+    PACS_CONSULTORIO = "pacs_consultorio"
+    # Atenção Primária
+    MFC_UBS = "mfc_ubs"
+    # Clínica Privada
+    PRIVATE_CLINIC = "consultorio"
 
 
 # ============================================
@@ -51,6 +62,17 @@ class OutpatientSpecialty(str, Enum):
     RHEUMATOLOGY = "reumatologia"
     UROLOGY = "urologia"
     GYNECOLOGY = "ginecologia"
+    # Cirurgia
+    GENERAL_SURGERY = "cirurgia_geral"
+    VASCULAR_SURGERY = "cirurgia_vascular"
+    # Ginecologia - subespecialidades
+    MASTOLOGY = "mastologia"
+    PTGI = "ptgi"  # Patologias do Trato Genital Inferior
+    ONCOGYNECOLOGY = "oncologia_ginecologica"
+    INFERTILITY = "infertilidade"
+    ENDOCRINO_GYNECOLOGY = "endocrino_ginecologia"  # Climatério
+    NEUROPEDIATRICS = "neuropediatria"
+    INTERNAL_MEDICINE = "medicina_interna"
 
 
 class ICUType(str, Enum):
@@ -104,11 +126,13 @@ class SectionsConfig(BaseModel):
     include_complementary_exams: bool = True
     include_assessment: bool = True  # Impressão/Avaliação
     include_plan: bool = True  # Conduta/Plano
-    
+
     # Seções opcionais por contexto
     include_reevaluation: bool = False  # Para internação
     include_daily_evolution: bool = False  # Evolução diária
-    include_subjective: bool = False  # Estilo SOAP
+    include_subjective: bool = False  # Estilo SOAP / EEM
+    include_conversion_block: bool = False  # "Converso em linguagem leiga..." (PACS Consultório)
+    include_pulses_table: bool = False  # Tabela de Pulsos D/E (Cirurgia Vascular)
 
 
 # ============================================

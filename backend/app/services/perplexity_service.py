@@ -1,6 +1,7 @@
 """
 Serviço de integração com a API Perplexity.
 Responsável por gerar evoluções médicas formatadas usando IA.
+Implementa construção modular de prompts (Tipo 1-14) conforme ROADMAP.
 """
 import httpx
 import json
@@ -8,10 +9,12 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from app.core.config import settings
+from app.services.prompt_loader import prompt_loader
 from app.models.evolution import (
     EvolutionTemplate,
     PatientData,
     PrimaryContext,
+    OutpatientSpecialty,
     TitleFormat,
     SectionTitleOption,
     ExamOrganization,
@@ -20,6 +23,112 @@ from app.models.evolution import (
     AbbreviationLevel,
     MedicationFormat,
 )
+
+
+# ============================================
+# MÓDULOS DE PROMPT (Tipo 1-14)
+# ============================================
+
+PROMPT_MODULES: Dict[str, str] = {
+    "PROMPT_BASE_001": """
+## 🔴 REGRAS CRÍTICAS - ANTI-INVENÇÃO
+
+1. NUNCA adicione informações não fornecidas
+2. NUNCA crie dados clínicos fictícios
+3. NUNCA interprete exames criando história
+4. NUNCA omita informações do original
+5. NUNCA invente diagnósticos
+
+## ✅ COMPLETUDE E COERÊNCIA
+
+1. Sempre copiar TODAS as informações fornecidas
+2. Manter ordem lógica SOAP/SOEIC
+3. Incluir negativas relevantes
+4. Completar seções conforme padrão
+5. Manter coerência clínica
+
+## 🔒 SEGURANÇA
+
+1. Incluir sinais de alarme apropriados
+2. Mencionar retorno/seguimento
+3. Verificar doses de medicações
+4. Confirmar contraindicações óbvias
+5. NUNCA recomendações não-médicas
+""",
+    "CONTEXTO_AMBULATORIO": """
+CONTEXTO: Ambulatório de Especialidades
+- Estrutura: HDA → Subjetivo → Objetivo → Exames → Impressão → Conduta
+- Primeira consulta vs Retorno (estrutura similar)
+- Assinatura com residentes ou preceptores
+""",
+    "CONTEXTO_EMERGENCIA": """
+CONTEXTO: Emergência
+- Estrutura: HDA → Subjetivo → Objetivo → Exames → Avaliação → Conduta
+- Histórico com símbolos > e -- hierárquicos
+- Tempo limitado - objetividade
+""",
+    "CONTEXTO_INTERNACAO": """
+CONTEXTO: Internação
+- Estrutura: HDA → Subjetivo → Objetivo → Exames → Impressão → Conduta
+- "Encontro paciente em leito..."
+- Tracking de parâmetros
+""",
+    "CONTEXTO_PA_VERDE": """
+CONTEXTO: PA Sala Verde (Baixo Risco)
+- Tempo: 5-10 minutos
+- Abreviações MÁXIMAS (BEG, LOC, MUC, AAA)
+- Subjetivo: 2-3 linhas
+- Objetivo: BEG LOC MUC AAA + sistemas relevantes
+""",
+    "CONTEXTO_PACS_URGENCIA": """
+CONTEXTO: PACS Urgência
+- S / O / E / I / C / P (SOAP expandido)
+- Abreviações MÁXIMAS
+- Ultra-compacto (5-8 linhas)
+- Sinais vitais inline: PA 132/85 | FC 64 | TAx 36,9
+""",
+    "CONTEXTO_MFC_UBS": """
+CONTEXTO: MFC/UBS - Atenção Primária
+- Foco longitudinal
+- Educação em saúde obrigatória
+- Estrutura flexível
+""",
+    "HISTORIA_VASCULAR": """
+HISTÓRIA (Vascular): Formato hierárquico com > e --
+# História:
+> DAOP
+-- MID sintomático
+> DAC multiarterial
+- [02/12/22] PO CRM com CEC
+Incluir tabela de pulsos comparativa e ITB se mencionados.
+""",
+    "OBJETIVO_VASCULAR": """
+OBJETIVO (Vascular): Incluir tabela de pulsos (D/E), ITB, evolução de lesões (FO).
+Descrição anatômica vascular precisa.
+""",
+    "HISTORIA_PSIQUIATRIA": """
+HISTÓRIA (Psiquiatria): EEM Completo - 15 componentes obrigatórios:
+Consciência, Atenção, Orientação, Sensopercepção, Memória, Inteligência,
+Afeto, Humor, Pensamento, Juízo crítico, Insight, Conduta, Linguagem,
+Psicomotricidade, Higiene/Autocuidado.
+Medicações com dosagens. Risco suicídio/agressividade sempre.
+""",
+    "OBJETIVO_PSIQUIATRIA": """
+OBJETIVO (Psiquiatria): Exame do Estado Mental (EEM) detalhado.
+""",
+    "HISTORIA_ENDOCRINOLOGIA": """
+HISTÓRIA (Endocrinologia): Revisão de Sistemas completa.
+Perfil Psicossocial detalhado. Exames com valores de referência entre parênteses.
+Insulinoterapia: NPH AC 20 AA 20 AJ 22UI. IMC classificado.
+"- ciente e concordante" obrigatório.
+""",
+    "OBJETIVO_MASTOLOGIA": """
+OBJETIVO (Mastologia): Exame de Mamas por lateralidade:
+-- Direita: [descrição]
+-- Esquerda: [descrição]
+Quadrantes (QSL, QSM, QIL, QIM, RC, JQL). BIRADS detalhado.
+""",
+}
 
 
 class PerplexityService:
@@ -32,25 +141,101 @@ class PerplexityService:
         self.model = settings.PERPLEXITY_MODEL
     
     def _build_system_prompt(self, template: Optional[EvolutionTemplate] = None) -> str:
-        """Constrói o prompt de sistema baseado no template."""
-        base_prompt = """Você é um assistente especializado em documentação médica brasileira.
-Sua função é formatar evoluções médicas a partir de texto livre, seguindo rigorosamente as configurações fornecidas.
+        """Monta o prompt final combinando módulos (Lógica LEGO)."""
+        lego_parts: List[str] = []
 
-REGRAS GERAIS:
-1. Mantenha a precisão médica absoluta - não invente informações
-2. Use terminologia médica adequada ao contexto brasileiro
-3. Siga estritamente o formato e estrutura solicitados
-4. Organize as informações de forma clara e profissional
-5. Respeite as preferências de abreviações configuradas
-6. Formate exames conforme especificado
-7. Inclua apenas as seções configuradas
+        # 1. BASE (Regras Anti-Invenção)
+        base = prompt_loader.get_module("base", "PROMPT_BASE_001")
+        if base:
+            lego_parts.append(base)
+        else:
+            lego_parts.append(PROMPT_MODULES.get("PROMPT_BASE_001", ""))
 
-"""
-        
-        if template:
-            base_prompt += self._build_template_instructions(template)
-        
-        return base_prompt
+        # Intro genérica
+        lego_parts.append("""Você é um assistente especializado em documentação médica brasileira.
+Sua função é formatar evoluções médicas a partir de texto livre, seguindo rigorosamente as configurações fornecidas.""")
+
+        if not template:
+            lego_parts.append("""Siga estrutura SOAP padrão: Subjetivo, Objetivo, Avaliação/Impressão, Conduta.
+Use abreviações médicas quando apropriado.""")
+            return "\n\n---\n\n".join([p for p in lego_parts if p])
+
+        # 2. CONTEXTO (PA, Ambulatório, Internação, PACS)
+        context_name = template.primary_context.value if template.primary_context else "GENERICO"
+        ctx_module = prompt_loader.get_module("contexto", context_name.upper().replace("-", "_"))
+        if ctx_module:
+            lego_parts.append(ctx_module)
+
+        # 3. ESPECIALIDADE (Vascular, Psiquiatria...)
+        specialty = (
+            template.outpatient_specialty
+            or template.emergency_type
+            or template.icu_type
+            or template.hospitalization_type
+        )
+        specialty_file_map = {
+            "cirurgia_geral": "CIRURGIA_GERAL",
+            "cirurgia_vascular": "VASCULAR",
+            "obstetricia": "OBSTETRICA",
+            "psiquiatria": "PSIQUIATRIA",
+            "endocrinologia": "ENDOCRINOLOGIA",
+            "mastologia": "GINECO_MASTOLOGIA",
+            "ptgi": "GINECO_PTGI",
+            "pediatria": "PEDIATRIA",
+        }
+        if specialty:
+            spec_file = specialty_file_map.get(specialty.value, specialty.value.upper().replace("-", "_"))
+            esp_module = prompt_loader.get_module("especialidades", spec_file)
+            if esp_module:
+                lego_parts.append(esp_module)
+        # DOCCTORMED: carrega quando contexto é clínica privada (consultório)
+        if template.primary_context and template.primary_context.value == "consultorio":
+            docctor_module = prompt_loader.get_module("especialidades", "DOCCTORMED")
+            if docctor_module:
+                lego_parts.append(docctor_module)
+
+        # 4. ABREVIAÇÕES (Extremas, Moderadas, Mínimas)
+        abbr_level = template.formatting_config.abbreviations.medical_abbreviations.value
+        abbr_map = {"maximo": "EXTREMAS", "moderado": "MODERADAS", "minimo": "MINIMAS"}
+        abbr_module = prompt_loader.get_module(
+            "abreviacoes", abbr_map.get(abbr_level, "MODERADAS")
+        )
+        if abbr_module:
+            lego_parts.append(abbr_module)
+
+        # Medicações
+        if template.formatting_config.abbreviations.medication_format == MedicationFormat.FULL:
+            lego_parts.append("Escreva o nome de todos os medicamentos por extenso.")
+        else:
+            lego_parts.append("Pode usar abreviaturas comuns para classes de medicamentos (ex: AAS, IECA, BRA).")
+
+        # 5. SEÇÕES ATIVAS + Conversão Leiga (PACS/Ambulatório)
+        sections_instr = "# ESTRUTURA DE SEÇÕES SOLICITADA:\n"
+        if template.sections_config.include_hda:
+            sections_instr += "- Inclua seção HDA conforme texto original.\n"
+        if template.sections_config.include_physical_exam:
+            sections_instr += "- Inclua EXAME FÍSICO detalhado.\n"
+        if template.sections_config.include_complementary_exams:
+            sections_instr += "- Inclua EXAMES COMPLEMENTARES.\n"
+        if template.sections_config.include_assessment:
+            sections_instr += "- Inclua IMPRESSÃO/AVALIAÇÃO.\n"
+        if template.sections_config.include_plan:
+            sections_instr += "- Inclua CONDUTA e ORIENTAÇÕES.\n"
+        if template.sections_config.include_subjective:
+            sections_instr += "- Inclua SUBJETIVO (estilo SOAP/EEM).\n"
+
+        if template.primary_context and template.primary_context.value in [
+            "pacs_consultorio",
+            "ambulatorio",
+        ]:
+            conv_module = prompt_loader.get_module("secoes/conduta", "CONVERSAO_PACS")
+            if conv_module:
+                lego_parts.append(conv_module)
+
+        lego_parts.append(sections_instr)
+        lego_parts.append(self._build_template_instructions(template))
+
+        return "\n\n---\n\n".join([p for p in lego_parts if p])
     
     def _build_template_instructions(self, template: EvolutionTemplate) -> str:
         """Constrói instruções específicas baseadas no template."""
@@ -187,22 +372,7 @@ FORMATAÇÃO:
             LabFormat.DETAILED: "Formato detalhado: Hemoglobina: 12,5 g/dL",
         }
         instructions.append(f"- Labs: {lab_map.get(exam_format.lab_format, 'Compacto')}")
-        
-        # Abreviações
-        abbr = config.abbreviations
-        abbr_map = {
-            AbbreviationLevel.MAXIMUM: "Usar abreviações máximas (HAS, DM, DPOC, BEG, etc)",
-            AbbreviationLevel.MODERATE: "Usar abreviações moderadas (só doenças comuns)",
-            AbbreviationLevel.MINIMUM: "Escrever por extenso (mínimo de abreviações)",
-        }
-        instructions.append(f"- {abbr_map.get(abbr.medical_abbreviations, 'Abreviações máximas')}")
-        
-        med_map = {
-            MedicationFormat.ABBREVIATED: "Medicações abreviadas (AAS, IECA, BRA)",
-            MedicationFormat.FULL: "Medicações por extenso",
-        }
-        instructions.append(f"- {med_map.get(abbr.medication_format, 'Abreviadas')}")
-        
+        # Abreviações e medicações são injetadas via LEGO (_build_system_prompt)
         return "\n".join(instructions)
     
     def _build_user_prompt(
@@ -435,5 +605,3 @@ Retorne APENAS o texto da evolução formatada, sem explicações adicionais."""
 
 # Instância singleton do serviço
 perplexity_service = PerplexityService()
-
-# Teste de Git

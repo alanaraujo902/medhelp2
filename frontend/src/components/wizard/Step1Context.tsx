@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, Heart, Bed, Stethoscope } from 'lucide-react';
+import { Building2, Heart, Bed, Stethoscope, Activity, Home, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWizardStore } from '@/store/wizardStore';
 import type { PrimaryContext } from '@/types';
@@ -34,6 +34,27 @@ const contexts = [
     icon: Stethoscope,
     color: 'green',
   },
+  {
+    value: 'pacs' as PrimaryContext,
+    label: 'PACS',
+    description: 'Pronto Atendimento / Urgência compacta',
+    icon: Activity,
+    color: 'orange',
+  },
+  {
+    value: 'mfc_ubs' as PrimaryContext,
+    label: 'MFC/UBS',
+    description: 'Medicina de Família e Comunidade',
+    icon: Home,
+    color: 'teal',
+  },
+  {
+    value: 'consultorio' as PrimaryContext,
+    label: 'Clínica Privada',
+    description: 'Consultório particular (DocctorMed)',
+    icon: Briefcase,
+    color: 'slate',
+  },
 ];
 
 const colorClasses = {
@@ -57,6 +78,21 @@ const colorClasses = {
     icon: 'text-green-600 bg-green-100',
     hover: 'hover:border-green-300',
   },
+  orange: {
+    selected: 'border-orange-500 bg-orange-50',
+    icon: 'text-orange-600 bg-orange-100',
+    hover: 'hover:border-orange-300',
+  },
+  teal: {
+    selected: 'border-teal-500 bg-teal-50',
+    icon: 'text-teal-600 bg-teal-100',
+    hover: 'hover:border-teal-300',
+  },
+  slate: {
+    selected: 'border-slate-500 bg-slate-50',
+    icon: 'text-slate-600 bg-slate-100',
+    hover: 'hover:border-slate-300',
+  },
 };
 
 export function Step1Context() {
@@ -71,7 +107,7 @@ export function Step1Context() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {contexts.map((context) => {
           const Icon = context.icon;
           const isSelected = primaryContext === context.value;

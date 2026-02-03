@@ -145,9 +145,13 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
   
   setSubContext: (subContext) => {
     const updates: Partial<WizardStore> = { subContext };
-    
-    // Configurações específicas para obstetrícia
-    if (subContext === 'obstetrica' || subContext === 'obstetricia') {
+    const goSubcontexts = [
+      'obstetrica', 'obstetricia', 'pre_natal_br',
+      'ginecologia', 'mastologia', 'ptgi', 'infertilidade', 'oncologia_ginecologica',
+    ];
+
+    // Configurações para Obstetrícia/Ginecologia
+    if (goSubcontexts.includes(subContext)) {
       updates.headerConfig = {
         ...get().headerConfig,
         include_gestational_age: true,
@@ -155,7 +159,23 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
         include_rapid_tests: true,
       };
     }
-    
+
+    // Conversão obrigatória para PACS Consultório
+    if (subContext === 'pacs_consultorio') {
+      updates.sectionsConfig = {
+        ...get().sectionsConfig,
+        include_conversion_block: true,
+      };
+    }
+
+    // Tabela de pulsos para Cirurgia Vascular
+    if (subContext === 'cirurgia_vascular') {
+      updates.sectionsConfig = {
+        ...get().sectionsConfig,
+        include_pulses_table: true,
+      };
+    }
+
     set(updates);
   },
   
@@ -185,16 +205,25 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
   setGeneratedEvolution: (evolution) => set({ generatedEvolution: evolution }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   
-  loadTemplate: (template) => set({
-    primaryContext: template.primary_context,
-    subContext: template.emergency_type || template.outpatient_specialty || template.icu_type || template.hospitalization_type || null,
-    headerConfig: template.header_config,
-    sectionsConfig: template.sections_config,
-    formattingConfig: template.formatting_config,
-    templateName: template.name,
-    isDefault: template.is_default,
-    selectedTemplateId: template.id,
-  }),
+  loadTemplate: (template) => {
+    const pc = template.primary_context;
+    // PACS: pacs_urgencia/pacs_consultorio → primaryContext "pacs", subContext específico
+    const isPacs = pc === 'pacs_urgencia' || pc === 'pacs_consultorio';
+    const primaryContext = isPacs ? 'pacs' : pc;
+    const subContext = isPacs
+      ? pc
+      : (template.emergency_type || template.outpatient_specialty || template.icu_type || template.hospitalization_type || null);
+    set({
+      primaryContext,
+      subContext,
+      headerConfig: template.header_config,
+      sectionsConfig: template.sections_config,
+      formattingConfig: template.formatting_config,
+      templateName: template.name,
+      isDefault: template.is_default,
+      selectedTemplateId: template.id,
+    });
+  },
   
   reset: () => set(initialState),
 }));

@@ -13,6 +13,7 @@ export function WritingWindow() {
     patientData,
     selectedTemplateId,
     primaryContext,
+    subContext,
     headerConfig,
     sectionsConfig,
     formattingConfig,
@@ -22,6 +23,12 @@ export function WritingWindow() {
     setIsGenerating,
     evolutionType,
   } = useWizardStore();
+
+  // Resolve primary_context: PACS usa subContext (pacs_urgencia/pacs_consultorio)
+  const effectivePrimaryContext =
+    primaryContext === 'pacs' && subContext
+      ? subContext
+      : primaryContext || undefined;
 
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +48,15 @@ export function WritingWindow() {
         template_id: selectedTemplateId || undefined,
         patient_data: Object.keys(patientData).length > 0 ? patientData : undefined,
         evolution_type: evolutionType || undefined,
-        primary_context: !selectedTemplateId ? primaryContext || undefined : undefined,
+        primary_context: !selectedTemplateId ? effectivePrimaryContext : undefined,
+        emergency_type:
+          !selectedTemplateId && primaryContext === 'emergencia' && subContext
+            ? subContext
+            : undefined,
+        outpatient_specialty:
+          !selectedTemplateId && primaryContext === 'ambulatorio' && subContext
+            ? subContext
+            : undefined,
         header_config: !selectedTemplateId ? headerConfig : undefined,
         sections_config: !selectedTemplateId ? sectionsConfig : undefined,
         formatting_config: !selectedTemplateId ? formattingConfig : undefined,
@@ -146,6 +161,32 @@ Paciente Maria Silva, 45 anos, hipertensa e diabética, em uso de losartana e me
           <CardContent>
             {generatedEvolution ? (
               <div className="space-y-4">
+                {/* Alertas de Validação Anti-Invenção */}
+                {(generatedEvolution.metadata?.validation_errors?.length ?? 0) > 0 && (
+                  <div className="space-y-2">
+                    {generatedEvolution.metadata.validation_errors!.map((error, i) => (
+                      <div
+                        key={i}
+                        className="bg-red-50 text-red-700 p-2 rounded-md border border-red-200 text-sm"
+                      >
+                        ❌ {error}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(generatedEvolution.metadata?.validation_warnings?.length ?? 0) > 0 && (
+                  <div className="space-y-2">
+                    {generatedEvolution.metadata.validation_warnings!.map((warn, i) => (
+                      <div
+                        key={i}
+                        className="bg-yellow-50 text-yellow-700 p-2 rounded-md border border-yellow-200 text-sm"
+                      >
+                        ⚠️ {warn}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap max-h-[500px] overflow-y-auto">
                   {generatedEvolution.formatted_text}
                 </div>
@@ -155,6 +196,17 @@ Paciente Maria Silva, 45 anos, hipertensa e diabética, em uso de losartana e me
                     <p className="text-sm text-yellow-700">
                       {generatedEvolution.metadata.warning}
                     </p>
+                  </div>
+                )}
+
+                {/* Detecção automática */}
+                {generatedEvolution.metadata?.detected_context && (
+                  <div className="text-xs text-gray-500">
+                    Detecção: {generatedEvolution.metadata.detected_context}
+                    {generatedEvolution.metadata.detected_specialty && ` • ${generatedEvolution.metadata.detected_specialty}`}
+                    {typeof generatedEvolution.metadata.detection_confidence === 'number' && (
+                      <> (confiança: {(generatedEvolution.metadata.detection_confidence * 100).toFixed(0)}%)</>
+                    )}
                   </div>
                 )}
 

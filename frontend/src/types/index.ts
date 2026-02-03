@@ -6,20 +6,32 @@
 // Enums e Tipos Base
 // ============================================
 
-export type PrimaryContext = 'emergencia' | 'uti' | 'internacao' | 'ambulatorio';
+export type PrimaryContext =
+  | 'emergencia'
+  | 'uti'
+  | 'internacao'
+  | 'ambulatorio'
+  | 'pa_verde'
+  | 'pa_amarela'
+  | 'pa_vermelha'
+  | 'pacs'
+  | 'pacs_urgencia'
+  | 'pacs_consultorio'
+  | 'mfc_ubs'
+  | 'consultorio';
 
-export type EmergencyType = 
-  | 'clinica_geral' 
-  | 'trauma' 
-  | 'cardiologica' 
-  | 'neurologica' 
-  | 'pediatrica' 
+export type EmergencyType =
+  | 'clinica_geral'
+  | 'trauma'
+  | 'cardiologica'
+  | 'neurologica'
+  | 'pediatrica'
   | 'obstetrica';
 
-export type OutpatientSpecialty = 
-  | 'clinica_geral' 
-  | 'cardiologia' 
-  | 'obstetricia' 
+export type OutpatientSpecialty =
+  | 'clinica_geral'
+  | 'cardiologia'
+  | 'obstetricia'
   | 'pediatria'
   | 'ortopedia'
   | 'dermatologia'
@@ -31,7 +43,16 @@ export type OutpatientSpecialty =
   | 'nefrologia'
   | 'reumatologia'
   | 'urologia'
-  | 'ginecologia';
+  | 'ginecologia'
+  | 'cirurgia_geral'
+  | 'cirurgia_vascular'
+  | 'mastologia'
+  | 'ptgi'
+  | 'oncologia_ginecologica'
+  | 'infertilidade'
+  | 'endocrino_ginecologia'
+  | 'neuropediatria'
+  | 'medicina_interna';
 
 export type ICUType = 
   | 'geral' 
@@ -93,6 +114,10 @@ export interface SectionsConfig {
   include_reevaluation: boolean;
   include_daily_evolution: boolean;
   include_subjective: boolean;
+  /** Bloco "Converso com paciente em linguagem leiga..." (PACS Consultório) */
+  include_conversion_block?: boolean;
+  /** Tabela de Pulsos D/E (Cirurgia Vascular) */
+  include_pulses_table?: boolean;
 }
 
 export interface SectionFormatConfig {
@@ -181,6 +206,24 @@ export interface EvolutionSection {
   order: number;
 }
 
+export interface EvolutionMetadata {
+  model_used?: string;
+  warning?: string;
+  /** Erros críticos de validação anti-invenção */
+  validation_errors?: string[];
+  /** Avisos de validação */
+  validation_warnings?: string[];
+  /** Se passou na validação */
+  validation_passed?: boolean;
+  /** Contexto detectado automaticamente */
+  detected_context?: string;
+  /** Especialidade detectada automaticamente */
+  detected_specialty?: string;
+  /** Confiança da detecção (0-1) */
+  detection_confidence?: number;
+  [key: string]: unknown;
+}
+
 export interface GeneratedEvolution {
   id: string;
   formatted_text: string;
@@ -188,7 +231,7 @@ export interface GeneratedEvolution {
   template_used?: string;
   created_at: string;
   processing_time_ms: number;
-  metadata: Record<string, unknown>;
+  metadata?: EvolutionMetadata;
 }
 
 // ============================================
@@ -289,6 +332,8 @@ export const defaultSectionsConfig: SectionsConfig = {
   include_reevaluation: false,
   include_daily_evolution: false,
   include_subjective: false,
+  include_conversion_block: false,
+  include_pulses_table: false,
 };
 
 export const defaultFormattingConfig: FormattingConfig = {

@@ -48,6 +48,13 @@ async def get_all_options():
         "uti": "UTI",
         "internacao": "Internação/Enfermaria",
         "ambulatorio": "Ambulatório/Consultório",
+        "pa_verde": "PA Sala Verde",
+        "pa_amarela": "PA Sala Amarela",
+        "pa_vermelha": "PA Sala Vermelha",
+        "pacs_urgencia": "PACS Urgência",
+        "pacs_consultorio": "PACS Consultórios",
+        "mfc_ubs": "MFC/UBS",
+        "consultorio": "Consultório Privado",
     }
     
     emergency_type_labels = {
@@ -75,6 +82,15 @@ async def get_all_options():
         "reumatologia": "Reumatologia",
         "urologia": "Urologia",
         "ginecologia": "Ginecologia",
+        "cirurgia_geral": "Cirurgia Geral",
+        "cirurgia_vascular": "Cirurgia Vascular",
+        "mastologia": "Mastologia",
+        "ptgi": "PTGI",
+        "oncologia_ginecologica": "Oncologia Ginecológica",
+        "infertilidade": "Infertilidade",
+        "endocrino_ginecologia": "Endócrino-Ginecologia",
+        "neuropediatria": "Neuropediatria",
+        "medicina_interna": "Medicina Interna",
     }
     
     icu_type_labels = {
@@ -161,23 +177,7 @@ async def get_context_subtypes(context: str):
             "obstetrica": "Obstétrica",
             "pediatrica": "Pediátrica",
         }),
-        "ambulatorio": _enum_to_options(OutpatientSpecialty, {
-            "clinica_geral": "Clínica Geral",
-            "cardiologia": "Cardiologia",
-            "obstetricia": "Obstetrícia",
-            "pediatria": "Pediatria",
-            "ortopedia": "Ortopedia",
-            "dermatologia": "Dermatologia",
-            "psiquiatria": "Psiquiatria",
-            "neurologia": "Neurologia",
-            "gastroenterologia": "Gastroenterologia",
-            "pneumologia": "Pneumologia",
-            "endocrinologia": "Endocrinologia",
-            "nefrologia": "Nefrologia",
-            "reumatologia": "Reumatologia",
-            "urologia": "Urologia",
-            "ginecologia": "Ginecologia",
-        }),
+        "ambulatorio": _enum_to_options(OutpatientSpecialty, outpatient_specialty_labels),
     }
     
     return {

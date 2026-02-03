@@ -50,10 +50,16 @@ export function Step5Save({ onSave, onTest }: Step5SaveProps) {
     setSaveError(null);
 
     try {
+      // PACS: primary_context vem do subContext (pacs_urgencia ou pacs_consultorio)
+      const effectivePrimaryContext =
+        primaryContext === 'pacs' && subContext
+          ? subContext
+          : primaryContext;
+
       const templateData: Partial<EvolutionTemplate> = {
         name: templateName,
         is_default: isDefault,
-        primary_context: primaryContext,
+        primary_context: effectivePrimaryContext as EvolutionTemplate['primary_context'],
         header_config: headerConfig,
         sections_config: sectionsConfig,
         formatting_config: formattingConfig,
@@ -90,6 +96,11 @@ export function Step5Save({ onSave, onTest }: Step5SaveProps) {
       uti: 'UTI',
       internacao: 'Internação',
       ambulatorio: 'Ambulatório',
+      pacs: 'PACS',
+      pacs_urgencia: 'PACS Urgência',
+      pacs_consultorio: 'PACS Consultório',
+      mfc_ubs: 'MFC/UBS',
+      consultorio: 'Clínica Privada',
     };
     return contexts[primaryContext || ''] || 'Não definido';
   };

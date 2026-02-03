@@ -3,16 +3,44 @@
 import { RadioGroup, RadioGroupItem } from '@/components/ui';
 import { useWizardStore } from '@/store/wizardStore';
 
-const subcontextOptions = {
+const subcontextOptions: Record<string, { title: string; options: { value: string; label: string }[] }> = {
   emergencia: {
     title: 'Tipo de emergência?',
     options: [
       { value: 'clinica_geral', label: 'Clínica Geral' },
-      { value: 'trauma', label: 'Trauma' },
-      { value: 'cardiologica', label: 'Cardiológica' },
-      { value: 'neurologica', label: 'Neurológica' },
-      { value: 'pediatrica', label: 'Pediátrica' },
-      { value: 'obstetrica', label: 'Obstétrica' },
+      { value: 'obstetrica', label: 'Obstétrica (EO)' },
+      { value: 'pediatrica', label: 'Pediátrica (EmerPed)' },
+      { value: 'trauma', label: 'Trauma/Cirurgia' },
+    ],
+  },
+  pacs: {
+    title: 'Qual ambiente PACS?',
+    options: [
+      { value: 'pacs_urgencia', label: 'Urgência (Compacto S/O/E/I/C/P)' },
+      { value: 'pacs_consultorio', label: 'Consultório (Intermediário + Conversão)' },
+    ],
+  },
+  ambulatorio: {
+    title: 'Qual especialidade?',
+    options: [
+      { value: 'clinica_geral', label: 'Clínica Geral' },
+      { value: 'cirurgia_vascular', label: 'Cirurgia Vascular (Tabela de Pulsos)' },
+      { value: 'endocrinologia', label: 'Endocrinologia (Recordatório/RS)' },
+      { value: 'psiquiatria', label: 'Psiquiatria (HMIPV)' },
+      { value: 'ginecologia', label: 'Ginecologia Geral' },
+      { value: 'mastologia', label: 'Mastologia (Exame Lateralidade)' },
+      { value: 'ptgi', label: 'PTGI (Colposcopia/Schiller)' },
+      { value: 'infertilidade', label: 'Infertilidade (Reserva Ovariana)' },
+      { value: 'oncologia_ginecologica', label: 'Oncologia Ginecológica' },
+    ],
+  },
+  internacao: {
+    title: 'Tipo de unidade?',
+    options: [
+      { value: 'clinica', label: 'Enfermaria Clínica' },
+      { value: 'psiquiatrica', label: 'Internação Psiquiátrica (EEM Completo)' },
+      { value: 'obstetrica', label: 'Maternidade (Alojamento Conjunto)' },
+      { value: 'uti_neo', label: 'UTI Neonatal' },
     ],
   },
   uti: {
@@ -25,33 +53,21 @@ const subcontextOptions = {
       { value: 'neonatal', label: 'UTI Neonatal' },
     ],
   },
-  internacao: {
-    title: 'Tipo de internação?',
+  mfc_ubs: {
+    title: 'Tipo de atendimento UBS?',
     options: [
-      { value: 'clinica', label: 'Clínica' },
-      { value: 'cirurgica', label: 'Cirúrgica' },
-      { value: 'obstetrica', label: 'Obstétrica' },
-      { value: 'pediatrica', label: 'Pediátrica' },
+      { value: 'consulta_geral', label: 'Consulta Longitudinal' },
+      { value: 'pre_natal_br', label: 'Pré-Natal Baixo Risco' },
+      { value: 'puericultura', label: 'Puericultura' },
+      { value: 'visita_domiciliar', label: 'Visita Domiciliar' },
     ],
   },
-  ambulatorio: {
-    title: 'Qual especialidade?',
+  consultorio: {
+    title: 'Padrão DocctorMed?',
     options: [
-      { value: 'clinica_geral', label: 'Clínica Geral' },
-      { value: 'cardiologia', label: 'Cardiologia' },
-      { value: 'obstetricia', label: 'Obstetrícia' },
-      { value: 'pediatria', label: 'Pediatria' },
-      { value: 'ortopedia', label: 'Ortopedia' },
-      { value: 'dermatologia', label: 'Dermatologia' },
-      { value: 'psiquiatria', label: 'Psiquiatria' },
-      { value: 'neurologia', label: 'Neurologia' },
-      { value: 'gastroenterologia', label: 'Gastroenterologia' },
-      { value: 'pneumologia', label: 'Pneumologia' },
-      { value: 'endocrinologia', label: 'Endocrinologia' },
-      { value: 'nefrologia', label: 'Nefrologia' },
-      { value: 'reumatologia', label: 'Reumatologia' },
-      { value: 'urologia', label: 'Urologia' },
-      { value: 'ginecologia', label: 'Ginecologia' },
+      { value: 'consulta_geral', label: 'Consulta Particular' },
+      { value: 'aso_masculino', label: 'ASO - Masculino' },
+      { value: 'aso_feminino', label: 'ASO - Feminino' },
     ],
   },
 };
@@ -67,29 +83,24 @@ export function Step2Subcontext() {
     );
   }
 
-  const contextConfig = subcontextOptions[primaryContext];
+  // Fallback para contextos não mapeados (UTI segue padrão Internação)
+  const contextConfig = subcontextOptions[primaryContext] ?? subcontextOptions.internacao;
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-gray-900">{contextConfig.title}</h2>
-        <p className="text-gray-500 mt-2">
-          Selecione a especialidade ou tipo específico
-        </p>
+        <p className="text-gray-500 mt-2">Personalize o modelo para sua rotina específica</p>
       </div>
 
       <RadioGroup
         name="subcontext"
         value={subContext || ''}
         onChange={setSubContext}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+        className="grid grid-cols-1 md:grid-cols-2 gap-3"
       >
         {contextConfig.options.map((option) => (
-          <RadioGroupItem
-            key={option.value}
-            value={option.value}
-            label={option.label}
-          />
+          <RadioGroupItem key={option.value} value={option.value} label={option.label} />
         ))}
       </RadioGroup>
     </div>
